@@ -4,3 +4,30 @@
 .loading-state{background:#fff;border:1px solid #eaecf1;border-radius:10px;padding:80px;text-align:center;color:#8f97a6;font-size:13px}
 .detail-card{margin-bottom:15px;padding:20px}.detail-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.detail-heading h2{font:700 19px Manrope;margin:5px 0 0}.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}.detail-field{display:flex;flex-direction:column;gap:5px;padding:11px 12px;background:#f8f8fb;border-radius:7px;min-width:0}.detail-field small{color:#8f97a6;font-size:10px}.detail-field b{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:1050px){.sidebar{width:220px}.content{padding:32px 25px}.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:750px){.sidebar{position:fixed;z-index:10;left:-260px;top:0;bottom:0;transition:left .2s}.sidebar.open{left:0}.mobile-close,.menu{display:block}.main header{padding:0 18px}.menu{margin-right:15px}.breadcrumb{margin-right:auto}.header-actions{gap:11px}.content{padding:28px 16px}.page-heading{align-items:flex-start;gap:20px;flex-direction:column}.dashboard-grid,.lower-grid{grid-template-columns:1fr}.metric-grid{gap:10px}.metric{padding:14px;min-height:135px}.metric-value{font-size:18px}.donut-wrap{justify-content:center}.page-heading h1{font-size:25px}}
+
+/* GOAT dark theme */
+:root{color:#e8ecf5;background:#0d111a}
+body{background:#0d111a;color:#e8ecf5}
+.sidebar,header{background:#131925;border-color:#273044}
+.brand strong,.workspace b,.profile b,.breadcrumb strong,.card h2,.metric-value,.record-row b,.detail-heading h2,.empty-card h2{color:#f4f6fb}
+.brand small,.workspace small,.profile small,.page-heading p,.module-placeholder>p,.card-heading p,.metric-label,.customer-cell small,.table-row>div>small,.record-row small,.eyebrow,.nav-section,.record-toolbar,.detail-field small{color:#8994a9}
+.workspace{background:#1b2230;border-color:#2b3549;color:#eef2f8}
+.workspace-avatar{background:#2c255c;color:#a89cff}
+.nav-item{color:#9ba6ba}.nav-item:hover,.nav-item.active{color:#b4aaff;background:#292448}
+.nav-item em{background:#493329;color:#ffad7b}
+.help-card{background:#1b2030;border-color:#30364b;color:#e8ecf5}.help-icon{background:#393265;color:#b4aaff}.help-card small{color:#8994a9}
+.profile{border-color:#273044}.profile>svg,.workspace>svg,.icon-btn,.menu{color:#9ba6ba}
+.avatar,.header-avatar{background:#28493e;color:#79d3ac}
+.main header{border-color:#273044}.breadcrumb span{color:#8994a9}.breadcrumb b{color:#556177}
+.header-search,.select,.inline-form input,.search-field input{background:#1a2130;border-color:#303b50;color:#e8ecf5}.header-search input{background:transparent;color:#e8ecf5}.header-search input::placeholder,.inline-form input::placeholder,.search-field input::placeholder{color:#758198}
+.notification i{border-color:#131925}
+.card,.empty-card,.detail-card{background:#171e2b;border-color:#2a3549;box-shadow:0 5px 18px #00000024}
+.metric-icon.purple{background:#2b2553;color:#b4aaff}.metric-icon.green{background:#183c34;color:#65d5aa}.metric-icon.orange{background:#49371e;color:#ffc16f}.metric-icon.red{background:#482a31;color:#ff8f91}
+.metric-trend span{color:#8994a9}.chart-legend,.plan-row{color:#9ba6ba}
+.select{color:#adb7c9}.donut>div{background:#171e2b}.donut small{color:#8994a9}.plan-row b{color:#e8ecf5}
+.table-row,.record-row,.record-toolbar{border-color:#273044}.customer-avatar{background:#2b2553;color:#b4aaff}.payment-icon{background:#183c34;color:#65d5aa}
+.badge.success{color:#65d5aa;background:#183c34}.badge.warning{color:#ffc16f;background:#49371e}.paid{color:#65d5aa}
+.inline-form input:focus,.search-field input:focus{border-color:#7165ee}.row-action{border-color:#443a83;background:#28234c;color:#b4aaff}.row-action:hover{background:#6557e8;color:#fff}
+.notification-popover{background:#171e2b;border-color:#303b50;box-shadow:0 8px 25px #0008}.notification-popover b{color:#f4f6fb}.notification-popover span{color:#9ba6ba}
+.detail-field{background:#1d2635}.detail-field b{color:#e8ecf5}
+.refresh-link,.text-button{color:#a89cff}
