@@ -5,7 +5,7 @@
 .detail-card{margin-bottom:15px;padding:20px}.detail-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.detail-heading h2{font:700 19px Manrope;margin:5px 0 0}.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}.detail-field{display:flex;flex-direction:column;gap:5px;padding:11px 12px;background:#f8f8fb;border-radius:7px;min-width:0}.detail-field small{color:#8f97a6;font-size:10px}.detail-field b{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:1050px){.sidebar{width:220px}.content{padding:32px 25px}.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:750px){.sidebar{position:fixed;z-index:10;left:-260px;top:0;bottom:0;transition:left .2s}.sidebar.open{left:0}.mobile-close,.menu{display:block}.main header{padding:0 18px}.menu{margin-right:15px}.breadcrumb{margin-right:auto}.header-actions{gap:11px}.content{padding:28px 16px}.page-heading{align-items:flex-start;gap:20px;flex-direction:column}.dashboard-grid,.lower-grid{grid-template-columns:1fr}.metric-grid{gap:10px}.metric{padding:14px;min-height:135px}.metric-value{font-size:18px}.donut-wrap{justify-content:center}.page-heading h1{font-size:25px}}
 
-/* GOAT dark theme */
+/* Brightloop dark theme */
 :root{color:#e8ecf5;background:#0d111a}
 body{background:#0d111a;color:#e8ecf5}
 .sidebar,header{background:#131925;border-color:#273044}
