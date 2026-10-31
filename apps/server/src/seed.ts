@@ -3,8 +3,10 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { Customer, Plan, Product, User } from './models.js';
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? 'apps/server/.env' });
-const uri = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/brightloop';
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? '.env' });
+dotenv.config({ path: 'apps/server/.env', override: false });
+const uri = process.env.MONGO_URI;
+if (!uri) throw new Error('MONGO_URI is not configured');
 await mongoose.connect(uri);
 const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD ?? 'Admin!12345', 12);
 await User.updateOne({ email: 'admin@brightloop.local' }, { $set: { name: 'Arjun Rao', email: 'admin@brightloop.local', passwordHash, role: 'admin' } }, { upsert: true });

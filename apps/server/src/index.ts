@@ -6,12 +6,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { Customer, Invoice, Payment, Plan, Product, Subscription, User } from './models.js';
+import { connectDatabase } from './config/db.js';
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? 'apps/server/.env' });
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? '.env' });
+dotenv.config({ path: 'apps/server/.env', override: false });
 const app = express();
 app.use(cors());
 app.use(express.json());
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.PORT ?? 5000);
 const jwtSecret = process.env.JWT_SECRET ?? 'development-only-secret-change-me';
 const id = (value: string) => mongoose.Types.ObjectId.isValid(value);
 const view = (value: any) => { const object = value?.toObject ? value.toObject() : { ...value }; if (object?._id) { object.id = String(object._id); delete object._id; } if (object.customerId && typeof object.customerId === 'object') { object.customer = object.customerId.company ?? object.customerId.name; object.customerId = String(object.customerId._id ?? object.customerId.id); } if (object.planId && typeof object.planId === 'object') { object.plan = object.planId.name; object.planId = String(object.planId._id ?? object.planId.id); } if (object.productId && typeof object.productId === 'object') object.productId = String(object.productId._id ?? object.productId.id); if (object.invoiceId && typeof object.invoiceId === 'object') object.invoice = object.invoiceId.number; return object; };
@@ -57,6 +59,6 @@ app.use((_req, res) => error(res, 404, 'Route not found'));
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => { console.error(err); error(res, 500, 'Unexpected server error'); });
 
 if (process.env.NODE_ENV !== 'test') {
-  mongoose.connect(process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/brightloop').then(() => app.listen(port, () => console.log(`Brightloop API listening on http://localhost:${port}`))).catch((err) => { console.error('MongoDB connection failed:', err.message); process.exitCode = 1; });
+  connectDatabase().then(() => app.listen(port, () => console.log(`Brightloop API listening on http://localhost:${port}`))).catch(() => { process.exitCode = 1; });
 }
 export default app;

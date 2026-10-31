@@ -10,10 +10,10 @@ npm run dev
 ```
 
 - Web app: http://localhost:5173
-- API: http://localhost:4000
-- API health: http://localhost:4000/api/health
+- API: http://localhost:5000
+- API health: http://localhost:5000/api/health
 
-The API uses MongoDB through Mongoose. Copy `apps/server/.env.example` to `apps/server/.env`, start MongoDB with `docker compose up -d mongodb`, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
+The API uses MongoDB Atlas through Mongoose. Copy `apps/server/.env.example` to `apps/server/.env`, set `MONGO_URI` to your Atlas connection string, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
 
 Default seeded login:
 

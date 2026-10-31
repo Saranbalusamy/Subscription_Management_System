@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Activity, ArrowUpRight, Bell, Boxes, ChevronDown, CircleDollarSign, CreditCard, FileText, LayoutDashboard, Menu, Package, Plus, Search, Settings, ShieldCheck, Users, X } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const API = 'http://localhost:4000/api';
+const API = 'http://localhost:5000/api';
 type Dashboard = { metrics: { activeSubscriptions: number; mrr: number; collected: number; outstanding: number }; revenueTrend: { month: string; revenue: number }[]; planBreakdown: { name: string; value: number; color: string }[]; recentPayments: Row[]; renewals: Row[] };
 type Row = Record<string, any>;
 const nav = [{ label: 'Overview', icon: LayoutDashboard }, { label: 'Subscriptions', icon: Activity }, { label: 'Customers', icon: Users }, { label: 'Invoices', icon: FileText }, { label: 'Products & plans', icon: Package }, { label: 'Payments', icon: CreditCard }];
