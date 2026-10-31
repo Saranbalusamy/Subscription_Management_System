@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Activity, ArrowUpRight, Bell, Boxes, ChevronDown, CircleDollarSign, CreditCard, FileText, LayoutDashboard, Menu, Package, Plus, Search, Settings, ShieldCheck, Users, X } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const API = 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL ?? '/api';
 type Dashboard = { metrics: { activeSubscriptions: number; mrr: number; collected: number; outstanding: number }; revenueTrend: { month: string; revenue: number }[]; planBreakdown: { name: string; value: number; color: string }[]; recentPayments: Row[]; renewals: Row[] };
 type Row = Record<string, any>;
 const nav = [{ label: 'Overview', icon: LayoutDashboard }, { label: 'Subscriptions', icon: Activity }, { label: 'Customers', icon: Users }, { label: 'Invoices', icon: FileText }, { label: 'Products & plans', icon: Package }, { label: 'Payments', icon: CreditCard }];
@@ -50,7 +50,7 @@ function ModulePage({ title, query, notify }: { title: string; query: string; no
   const endpoint = title === 'Customers' ? 'customers' : title === 'Subscriptions' ? 'subscriptions' : title === 'Invoices' ? 'invoices' : title === 'Payments' ? 'payments' : title === 'Products & plans' ? 'plans' : 'customers';
   const [rows, setRows] = useState<Row[]>([]); const [customers, setCustomers] = useState<Row[]>([]); const [plans, setPlans] = useState<Row[]>([]); const [showForm, setShowForm] = useState(false); const [form, setForm] = useState({ name: '', email: '', company: '', customerId: '', planId: '', plan: 'Growth', amount: '490', date: '' }); const [filter, setFilter] = useState('');
   const load = () => fetch(`${API}/${endpoint}`).then((r) => r.json()).then((result) => setRows(result.data ?? [])).catch(() => notify('Could not load records'));
-  useEffect(() => { void load(); if (title === 'Subscriptions' || title === 'Invoices') { void fetch(`${API}/customers`).then((r) => r.json()).then((result) => setCustomers(result.data ?? [])); void fetch(`${API}/plans`).then((r) => r.json()).then((result) => setPlans(result.data ?? [])); } }, [endpoint]);
+  useEffect(() => { void load(); if (title === 'Subscriptions' || title === 'Invoices') { void fetch(`${API}/customers`).then((r) => r.json()).then((result) => setCustomers(result.data ?? [])).catch(() => notify('Could not load customers')); void fetch(`${API}/plans`).then((r) => r.json()).then((result) => setPlans(result.data ?? [])).catch(() => notify('Could not load plans')); } }, [endpoint]);
   const visible = useMemo(() => rows.filter((row) => JSON.stringify(row).toLowerCase().includes((query || filter).toLowerCase())), [rows, query, filter]);
   const create = async () => {
     const isCustomer = title === 'Customers'; const isSubscription = title === 'Subscriptions';

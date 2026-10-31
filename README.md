@@ -13,6 +13,8 @@ npm run dev
 - API: http://localhost:5000
 - API health: http://localhost:5000/api/health
 
+`npm run dev` starts both processes. Keep that terminal open; closing the server process causes browser errors such as `ERR_CONNECTION_REFUSED`. The Vite development proxy forwards `/api` requests to port 5000. For a separately hosted frontend, set `VITE_API_URL` in `apps/web/.env` to the deployed API base URL.
+
 The API uses MongoDB Atlas through Mongoose. Copy `apps/server/.env.example` to `apps/server/.env`, set `MONGO_URI` to your Atlas connection string, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
 
 Default seeded login:
