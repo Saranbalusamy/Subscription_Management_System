@@ -1,6 +1,6 @@
 # Subscription Management System
 
-Brightloop subscription operations workspace built with React, TypeScript, Express, and a persistent local repository. It includes a live dashboard, customer, subscription, invoice, payment, product, and plan workflows.
+Brightloop subscription operations workspace built with React, TypeScript, Express, MongoDB, and Mongoose. It includes a live dashboard, customer, subscription, invoice, payment, product, and plan workflows.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ npm run dev
 - API: http://localhost:4000
 - API health: http://localhost:4000/api/health
 
-The API uses MongoDB through Mongoose. Copy `apps/server/.env.example` to `.env`, start MongoDB, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
+The API uses MongoDB through Mongoose. Copy `apps/server/.env.example` to `apps/server/.env`, start MongoDB with `docker compose up -d mongodb`, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
 
 Default seeded login:
 

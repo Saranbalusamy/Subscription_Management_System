@@ -15,7 +15,8 @@ export function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [notifications, setNotifications] = useState(false);
   const [toast, setToast] = useState('');
-  const reload = () => fetch(`${API}/dashboard`).then((r) => r.json()).then(setDashboard).catch(() => setToast('API is unavailable. Start the server with npm run dev.'));
+  const [loading, setLoading] = useState(true);
+  const reload = () => { setLoading(true); return fetch(`${API}/dashboard`).then(async (r) => { const body = await r.json(); if (!r.ok) throw new Error(body.error ?? 'Dashboard request failed'); return body as Dashboard; }).then(setDashboard).catch((err: Error) => setToast(err.message || 'API is unavailable. Start the server with npm run dev.')).finally(() => setLoading(false)); };
   useEffect(() => { void reload(); }, []);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 3500); };
   const go = (page: string) => { setActive(page); setSidebar(false); setNotifications(false); };
@@ -27,7 +28,7 @@ export function App() {
       <div className="sidebar-bottom"><button className="help-card" onClick={() => notify('Help center: use the operations pages to manage records')}><div className="help-icon">?</div><div><b>Need a hand?</b><small>Visit our help center</small></div></button><button className="profile" onClick={() => notify('Signed in as Arjun Rao')}><div className="avatar">AR</div><div><b>Arjun Rao</b><small>Administrator</small></div><ChevronDown size={15}/></button></div>
     </aside>
     <main className="main"><header><button className="menu" onClick={() => setSidebar(true)}><Menu size={21}/></button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{active}</strong></div><div className="header-actions"><div className="header-search"><Search size={15}/><input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Search..." /></div><button className="icon-btn notification" onClick={() => setNotifications((value) => !value)}><Bell size={18}/><i/></button><button className="header-avatar" onClick={() => notify('Signed in as Arjun Rao')}>AR</button>{notifications && <div className="notification-popover"><b>Notifications</b><span>3 invoices need attention</span><span>1 subscription is expiring soon</span><button onClick={() => { go('Invoices'); setNotifications(false); }}>Review invoices <ArrowUpRight size={13}/></button></div>}</div></header>
-      <div className="content">{active !== 'Overview' ? <ModulePage title={active} query={globalSearch} notify={notify} /> : <Overview dashboard={dashboard} go={go} notify={notify} reload={reload} />}</div>
+      <div className="content">{loading && active === 'Overview' ? <div className="loading-state">Loading live workspace data...</div> : active !== 'Overview' ? <ModulePage title={active} query={globalSearch} notify={notify} /> : <Overview dashboard={dashboard} go={go} notify={notify} reload={reload} />}</div>
     </main>{toast && <div className="toast">{toast}<button onClick={() => setToast('')}><X size={14}/></button></div>}
   </div>;
 }

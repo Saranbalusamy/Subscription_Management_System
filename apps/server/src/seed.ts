@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { Customer, Plan, Product, User } from './models.js';
 
-dotenv.config();
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? 'apps/server/.env' });
 const uri = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/brightloop';
 await mongoose.connect(uri);
 const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD ?? 'Admin!12345', 12);

@@ -1,14 +1,14 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { Customer, Invoice, Payment, Plan, Product, Subscription, User } from './models.js';
 
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? 'apps/server/.env' });
 const app = express();
-dotenv.config();
 app.use(cors());
 app.use(express.json());
 const port = Number(process.env.PORT ?? 4000);
@@ -16,17 +16,20 @@ const jwtSecret = process.env.JWT_SECRET ?? 'development-only-secret-change-me';
 const id = (value: string) => mongoose.Types.ObjectId.isValid(value);
 const view = (value: any) => { const object = value?.toObject ? value.toObject() : { ...value }; if (object?._id) { object.id = String(object._id); delete object._id; } if (object.customerId && typeof object.customerId === 'object') { object.customer = object.customerId.company ?? object.customerId.name; object.customerId = String(object.customerId._id ?? object.customerId.id); } if (object.planId && typeof object.planId === 'object') { object.plan = object.planId.name; object.planId = String(object.planId._id ?? object.planId.id); } if (object.productId && typeof object.productId === 'object') object.productId = String(object.productId._id ?? object.productId.id); if (object.invoiceId && typeof object.invoiceId === 'object') object.invoice = object.invoiceId.number; return object; };
 const error = (res: Response, status: number, message: string) => res.status(status).json({ error: message });
+const asyncRoute = (handler: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => handler(req, res).catch(next);
 
 app.get('/api/health', (_req, res) => res.json({ status: mongoose.connection.readyState === 1 ? 'ok' : 'degraded', service: 'brightloop-api', database: mongoose.connection.readyState === 1 ? 'mongodb' : 'disconnected' }));
 
-app.get('/api/dashboard', async (_req, res) => {
+app.get('/api/dashboard', asyncRoute(async (_req, res) => {
   const [active, allInvoices, allPayments, planMix, renewals] = await Promise.all([Subscription.find({ status: 'active' }).lean(), Invoice.find().lean(), Payment.find().sort({ paidOn: -1 }).limit(4).populate('customerId').lean(), Subscription.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$planId', value: { $sum: '$amount' } } }]), Subscription.find({ status: { $in: ['active', 'expiring'] } }).sort({ nextBillingDate: 1 }).limit(4).populate('customerId planId').lean()]);
   const mrr = active.reduce((sum, item) => sum + (item.billing === 'Yearly' ? item.amount / 12 : item.amount), 0);
   const collected = allPayments.reduce((sum, item) => sum + item.amount, 0);
   const outstanding = allInvoices.reduce((sum, item) => sum + Math.max(item.amount - item.paidAmount, 0), 0);
   const plans = await Plan.find({ _id: { $in: planMix.map((item) => item._id) } }).lean();
-  res.json({ metrics: { activeSubscriptions: active.length, mrr: Math.round(mrr), arr: Math.round(mrr * 12), collected, outstanding, overdue: allInvoices.filter((item) => item.status === 'overdue').length, cancellations: await Subscription.countDocuments({ status: 'closed' }), upcomingRenewals: renewals.length }, revenueTrend: [], planBreakdown: planMix.map((item) => ({ name: plans.find((plan) => String(plan._id) === String(item._id))?.name ?? 'Unknown', value: item.value, color: '#6557e8' })), recentPayments: allPayments.map(view), renewals: renewals.map(view) });
-});
+  const totalMix = planMix.reduce((sum, item) => sum + item.value, 0) || 1;
+  const revenueTrend = await Payment.aggregate([{ $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paidOn' } }, revenue: { $sum: '$amount' } } }, { $sort: { _id: 1 } }, { $limit: 12 }]);
+  res.json({ metrics: { activeSubscriptions: active.length, mrr: Math.round(mrr), arr: Math.round(mrr * 12), collected, outstanding, overdue: allInvoices.filter((item) => item.status === 'overdue').length, cancellations: await Subscription.countDocuments({ status: 'closed' }), upcomingRenewals: renewals.length }, revenueTrend: revenueTrend.map((item) => ({ month: item._id, revenue: item.revenue })), planBreakdown: planMix.map((item) => ({ name: plans.find((plan) => String(plan._id) === String(item._id))?.name ?? 'Unknown', value: Math.round((item.value / totalMix) * 100), color: '#6557e8' })), recentPayments: allPayments.map(view), renewals: renewals.map(view) });
+}));
 
 app.get('/api/customers', async (req, res) => { const query = String(req.query.search ?? ''); const filter = query ? { $or: [{ name: new RegExp(query, 'i') }, { email: new RegExp(query, 'i') }] } : {}; res.json({ data: (await Customer.find(filter).sort({ createdAt: -1 }).lean()).map(view) }); });
 app.get('/api/customers/:id', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid customer id'); const customer = await Customer.findById(req.params.id).lean(); if (!customer) return error(res, 404, 'Customer not found'); const [subscriptions, invoices, payments] = await Promise.all([Subscription.find({ customerId: req.params.id }).populate('planId productId').lean(), Invoice.find({ customerId: req.params.id }).lean(), Payment.find({ customerId: req.params.id }).lean()]); res.json({ data: { ...view(customer), subscriptions: subscriptions.map(view), invoices: invoices.map(view), payments: payments.map(view) } }); });
@@ -51,7 +54,7 @@ app.post('/api/invoices', async (req, res) => { const parsed = invoiceSchema.saf
 app.post('/api/invoices/:id/payments', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid invoice id'); const parsed = z.object({ amount: z.number().positive(), method: z.enum(['Card', 'Bank transfer', 'UPI']), reference: z.string().optional(), notes: z.string().optional() }).safeParse(req.body); if (!parsed.success) return error(res, 400, 'A positive amount and valid payment method are required'); const invoice = await Invoice.findById(req.params.id); if (!invoice) return error(res, 404, 'Invoice not found'); if (invoice.paidAmount + parsed.data.amount > invoice.amount) return error(res, 409, 'Payment exceeds invoice balance'); const payment = await Payment.create({ invoiceId: invoice._id, customerId: invoice.customerId, ...parsed.data }); invoice.paidAmount += parsed.data.amount; invoice.status = invoice.paidAmount === invoice.amount ? 'paid' : 'partially_paid'; await invoice.save(); res.status(201).json({ data: view(payment), invoice: view(invoice) }); });
 
 app.use((_req, res) => error(res, 404, 'Route not found'));
-app.use((err: Error, _req: Request, res: Response, _next: Function) => { console.error(err); error(res, 500, 'Unexpected server error'); });
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => { console.error(err); error(res, 500, 'Unexpected server error'); });
 
 if (process.env.NODE_ENV !== 'test') {
   mongoose.connect(process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/brightloop').then(() => app.listen(port, () => console.log(`Brightloop API listening on http://localhost:${port}`))).catch((err) => { console.error('MongoDB connection failed:', err.message); process.exitCode = 1; });
