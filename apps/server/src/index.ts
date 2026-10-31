@@ -1,101 +1,59 @@
 import cors from 'cors';
-import express from 'express';
+import dotenv from 'dotenv';
+import express, { Request, Response } from 'express';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { customers, invoices, payments, subscriptions, persist, plans, products } from './store.js';
+import { Customer, Invoice, Payment, Plan, Product, Subscription, User } from './models.js';
 
 const app = express();
+dotenv.config();
 app.use(cors());
 app.use(express.json());
-
-const money = (value: number) => Math.round(value * 100) / 100;
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'brightloop-api' }));
-
-app.get('/api/dashboard', (_req, res) => {
-  const active = subscriptions.filter((item) => item.status === 'active');
-  const mrr = money(active.reduce((sum, item) => sum + item.amount, 0));
-  const collected = money(payments.reduce((sum, item) => sum + item.amount, 0));
-  const outstanding = money(invoices.filter((item) => item.status === 'open' || item.status === 'overdue').reduce((sum, item) => sum + item.amount, 0));
-  res.json({
-    metrics: { activeSubscriptions: active.length, mrr, arr: money(mrr * 12), collected, outstanding, overdue: invoices.filter((item) => item.status === 'overdue').length, cancellations: 3, upcomingRenewals: subscriptions.filter((item) => item.status !== 'closed').length },
-    revenueTrend: [42, 48, 46, 55, 59, 64, 71, 74, 81, 79, 88, 94].map((revenue, index) => ({ month: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'][index], revenue })),
-    planBreakdown: [{ name: 'Enterprise', value: 55, color: '#6557e8' }, { name: 'Scale', value: 28, color: '#20b486' }, { name: 'Growth', value: 17, color: '#f3a64a' }],
-    recentPayments: payments.slice(0, 4),
-    renewals: subscriptions.filter((item) => item.status === 'expiring' || item.status === 'active').slice(0, 4)
-  });
-});
-
-app.get('/api/customers', (_req, res) => res.json({ data: customers }));
-app.get('/api/subscriptions', (_req, res) => res.json({ data: subscriptions }));
-app.get('/api/invoices', (_req, res) => res.json({ data: invoices }));
-app.get('/api/payments', (_req, res) => res.json({ data: payments }));
-app.get('/api/products', (_req, res) => res.json({ data: products }));
-app.get('/api/plans', (_req, res) => res.json({ data: plans }));
-
-app.post('/api/auth/login', (req, res) => {
-  const email = z.string().email().safeParse(req.body.email);
-  const password = z.string().min(9).safeParse(req.body.password);
-  if (!email.success || !password.success) return res.status(400).json({ error: 'Enter a valid email and a password longer than 8 characters' });
-  res.json({ token: `demo-session-${Date.now()}`, user: { name: 'Arjun Rao', email: email.data, role: 'admin' } });
-});
-
-const customerSchema = z.object({ name: z.string().min(2), email: z.string().email(), company: z.string().min(2), plan: z.string().min(2) });
-app.post('/api/customers', (req, res) => {
-  const parsed = customerSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid customer details', details: parsed.error.flatten() });
-  if (customers.some((customer) => customer.email.toLowerCase() === parsed.data.email.toLowerCase())) return res.status(409).json({ error: 'A customer with this email already exists' });
-  const customer = { id: `cus_${customers.length + 1}`, ...parsed.data, status: 'active' as const, mrr: 0, joinedAt: new Date().toISOString().slice(0, 10), initials: parsed.data.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() };
-  customers.unshift(customer);
-  persist();
-  res.status(201).json({ data: customer });
-});
-
-const subscriptionSchema = z.object({ customerId: z.string(), plan: z.string().min(2), amount: z.number().positive(), billing: z.enum(['Monthly', 'Yearly']), renewsOn: z.string() });
-app.post('/api/subscriptions', (req, res) => {
-  const parsed = subscriptionSchema.safeParse(req.body);
-  const customer = parsed.success ? customers.find((item) => item.id === parsed.data.customerId) : undefined;
-  if (!parsed.success || !customer) return res.status(400).json({ error: 'Customer, plan, amount, billing, and renewal date are required' });
-  const subscription = { id: `sub_${Date.now()}`, number: `SUB-${1050 + subscriptions.length}`, customerId: customer.id, customer: customer.company, plan: parsed.data.plan, status: 'active' as const, amount: parsed.data.amount, billing: parsed.data.billing, renewsOn: parsed.data.renewsOn };
-  subscriptions.unshift(subscription);
-  customer.plan = subscription.plan;
-  customer.mrr = parsed.data.billing === 'Yearly' ? Math.round(parsed.data.amount / 12) : parsed.data.amount;
-  persist();
-  res.status(201).json({ data: subscription });
-});
-
-app.patch('/api/subscriptions/:id/status', (req, res) => {
-  const status = z.enum(['active', 'paused', 'expiring', 'closed']).safeParse(req.body.status);
-  const subscription = subscriptions.find((item) => item.id === req.params.id);
-  if (!status.success || !subscription) return res.status(400).json({ error: 'Invalid subscription status' });
-  subscription.status = status.data;
-  persist();
-  res.json({ data: subscription });
-});
-
-const invoiceSchema = z.object({ customer: z.string().min(2), plan: z.string().min(2), amount: z.number().positive(), dueOn: z.string() });
-app.post('/api/invoices', (req, res) => {
-  const parsed = invoiceSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Customer, plan, amount, and due date are required' });
-  const invoice = { id: `inv_${Date.now()}`, number: `INV-${2085 + invoices.length}`, ...parsed.data, status: 'open' as const, issuedOn: new Date().toISOString().slice(0, 10) };
-  invoices.unshift(invoice);
-  persist();
-  res.status(201).json({ data: invoice });
-});
-
-app.post('/api/invoices/:id/payments', (req, res) => {
-  const amount = z.number().positive().safeParse(req.body.amount);
-  if (!amount.success) return res.status(400).json({ error: 'Payment amount must be positive' });
-  const invoice = invoices.find((item) => item.id === req.params.id);
-  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-  const alreadyPaid = payments.filter((payment) => payment.invoice === invoice.number).reduce((sum, payment) => sum + payment.amount, 0);
-  if (alreadyPaid + amount.data > invoice.amount) return res.status(409).json({ error: 'Payment exceeds invoice balance' });
-  const payment = { id: `pay_${payments.length + 1}`, customer: invoice.customer, invoice: invoice.number, amount: amount.data, method: (req.body.method ?? 'Card') as 'Card', paidOn: new Date().toISOString().slice(0, 10) };
-  payments.unshift(payment);
-  invoice.status = alreadyPaid + amount.data === invoice.amount ? 'paid' : 'open';
-  persist();
-  res.status(201).json({ data: payment, invoice });
-});
-
-app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
 const port = Number(process.env.PORT ?? 4000);
-if (process.env.NODE_ENV !== 'test') app.listen(port, () => console.log(`Brightloop API listening on http://localhost:${port}`));
+const jwtSecret = process.env.JWT_SECRET ?? 'development-only-secret-change-me';
+const id = (value: string) => mongoose.Types.ObjectId.isValid(value);
+const view = (value: any) => { const object = value?.toObject ? value.toObject() : { ...value }; if (object?._id) { object.id = String(object._id); delete object._id; } if (object.customerId && typeof object.customerId === 'object') { object.customer = object.customerId.company ?? object.customerId.name; object.customerId = String(object.customerId._id ?? object.customerId.id); } if (object.planId && typeof object.planId === 'object') { object.plan = object.planId.name; object.planId = String(object.planId._id ?? object.planId.id); } if (object.productId && typeof object.productId === 'object') object.productId = String(object.productId._id ?? object.productId.id); if (object.invoiceId && typeof object.invoiceId === 'object') object.invoice = object.invoiceId.number; return object; };
+const error = (res: Response, status: number, message: string) => res.status(status).json({ error: message });
+
+app.get('/api/health', (_req, res) => res.json({ status: mongoose.connection.readyState === 1 ? 'ok' : 'degraded', service: 'brightloop-api', database: mongoose.connection.readyState === 1 ? 'mongodb' : 'disconnected' }));
+
+app.get('/api/dashboard', async (_req, res) => {
+  const [active, allInvoices, allPayments, planMix, renewals] = await Promise.all([Subscription.find({ status: 'active' }).lean(), Invoice.find().lean(), Payment.find().sort({ paidOn: -1 }).limit(4).populate('customerId').lean(), Subscription.aggregate([{ $match: { status: 'active' } }, { $group: { _id: '$planId', value: { $sum: '$amount' } } }]), Subscription.find({ status: { $in: ['active', 'expiring'] } }).sort({ nextBillingDate: 1 }).limit(4).populate('customerId planId').lean()]);
+  const mrr = active.reduce((sum, item) => sum + (item.billing === 'Yearly' ? item.amount / 12 : item.amount), 0);
+  const collected = allPayments.reduce((sum, item) => sum + item.amount, 0);
+  const outstanding = allInvoices.reduce((sum, item) => sum + Math.max(item.amount - item.paidAmount, 0), 0);
+  const plans = await Plan.find({ _id: { $in: planMix.map((item) => item._id) } }).lean();
+  res.json({ metrics: { activeSubscriptions: active.length, mrr: Math.round(mrr), arr: Math.round(mrr * 12), collected, outstanding, overdue: allInvoices.filter((item) => item.status === 'overdue').length, cancellations: await Subscription.countDocuments({ status: 'closed' }), upcomingRenewals: renewals.length }, revenueTrend: [], planBreakdown: planMix.map((item) => ({ name: plans.find((plan) => String(plan._id) === String(item._id))?.name ?? 'Unknown', value: item.value, color: '#6557e8' })), recentPayments: allPayments.map(view), renewals: renewals.map(view) });
+});
+
+app.get('/api/customers', async (req, res) => { const query = String(req.query.search ?? ''); const filter = query ? { $or: [{ name: new RegExp(query, 'i') }, { email: new RegExp(query, 'i') }] } : {}; res.json({ data: (await Customer.find(filter).sort({ createdAt: -1 }).lean()).map(view) }); });
+app.get('/api/customers/:id', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid customer id'); const customer = await Customer.findById(req.params.id).lean(); if (!customer) return error(res, 404, 'Customer not found'); const [subscriptions, invoices, payments] = await Promise.all([Subscription.find({ customerId: req.params.id }).populate('planId productId').lean(), Invoice.find({ customerId: req.params.id }).lean(), Payment.find({ customerId: req.params.id }).lean()]); res.json({ data: { ...view(customer), subscriptions: subscriptions.map(view), invoices: invoices.map(view), payments: payments.map(view) } }); });
+app.get('/api/subscriptions', async (_req, res) => res.json({ data: (await Subscription.find().populate('customerId planId productId').sort({ createdAt: -1 }).lean()).map(view) }));
+app.get('/api/invoices', async (_req, res) => res.json({ data: (await Invoice.find().populate('customerId').sort({ issuedOn: -1 }).lean()).map(view) }));
+app.get('/api/payments', async (_req, res) => res.json({ data: (await Payment.find().populate('customerId invoiceId').sort({ paidOn: -1 }).lean()).map(view) }));
+app.get('/api/products', async (_req, res) => res.json({ data: (await Product.find().sort({ name: 1 }).lean()).map(view) }));
+app.get('/api/plans', async (_req, res) => res.json({ data: (await Plan.find().sort({ price: 1 }).lean()).map(view) }));
+
+app.post('/api/auth/login', async (req, res) => { const parsed = z.object({ email: z.string().email(), password: z.string().min(9) }).safeParse(req.body); if (!parsed.success) return error(res, 400, 'Enter a valid email and a password longer than 8 characters'); const user = await User.findOne({ email: parsed.data.email }).lean() as any; if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) return error(res, 401, 'Invalid email or password'); res.json({ token: jwt.sign({ sub: String(user._id), role: user.role }, jwtSecret, { expiresIn: '8h' }), user: { id: String(user._id), name: user.name, email: user.email, role: user.role } }); });
+
+const customerSchema = z.object({ name: z.string().min(2), email: z.string().email(), phone: z.string().optional(), company: z.string().optional(), address: z.string().optional(), customerType: z.string().optional(), status: z.enum(['active', 'at-risk', 'inactive']).optional() });
+app.post('/api/customers', async (req, res) => { const parsed = customerSchema.safeParse(req.body); if (!parsed.success) return error(res, 400, 'Name and a valid email are required'); try { const customer = await Customer.create(parsed.data); res.status(201).json({ data: view(customer) }); } catch (e: any) { if (e.code === 11000) return error(res, 409, 'A customer with this email already exists'); throw e; } });
+app.patch('/api/customers/:id', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid customer id'); const parsed = customerSchema.partial().safeParse(req.body); if (!parsed.success) return error(res, 400, 'Invalid customer details'); const customer = await Customer.findByIdAndUpdate(req.params.id, parsed.data, { new: true, runValidators: true }).lean(); return customer ? res.json({ data: view(customer) }) : error(res, 404, 'Customer not found'); });
+
+const subscriptionSchema = z.object({ customerId: z.string(), planId: z.string(), productId: z.string().optional(), quantity: z.number().int().positive().default(1), billing: z.enum(['Daily', 'Weekly', 'Monthly', 'Yearly']), amount: z.number().positive(), startDate: z.string(), expiryDate: z.string().optional(), nextBillingDate: z.string().optional() });
+app.post('/api/subscriptions', async (req, res) => { const parsed = subscriptionSchema.safeParse(req.body); if (!parsed.success || !id(parsed.data?.customerId ?? '') || !id(parsed.data?.planId ?? '')) return error(res, 400, 'Customer, plan, billing, amount, and dates are required'); const customer = await Customer.findById(parsed.data.customerId); if (!customer) return error(res, 404, 'Customer not found'); const subscription = await Subscription.create({ ...parsed.data, number: `SUB-${Date.now()}`, startDate: new Date(parsed.data.startDate), expiryDate: parsed.data.expiryDate ? new Date(parsed.data.expiryDate) : undefined, nextBillingDate: new Date(parsed.data.nextBillingDate ?? parsed.data.startDate) }); res.status(201).json({ data: view(subscription) }); });
+app.patch('/api/subscriptions/:id/status', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid subscription id'); const status = z.enum(['active', 'paused', 'expiring', 'closed']).safeParse(req.body.status); if (!status.success) return error(res, 400, 'Invalid subscription status'); const subscription = await Subscription.findByIdAndUpdate(req.params.id, { status: status.data }, { new: true }).lean(); return subscription ? res.json({ data: view(subscription) }) : error(res, 404, 'Subscription not found'); });
+
+const invoiceSchema = z.object({ customerId: z.string(), subscriptionId: z.string().optional(), plan: z.string().min(2), amount: z.number().positive(), dueOn: z.string() });
+app.post('/api/invoices', async (req, res) => { const parsed = invoiceSchema.safeParse(req.body); if (!parsed.success || !id(parsed.data?.customerId ?? '')) return error(res, 400, 'Customer, plan, amount, and due date are required'); const invoice = await Invoice.create({ ...parsed.data, number: `INV-${Date.now()}`, dueOn: new Date(parsed.data.dueOn) }); res.status(201).json({ data: view(invoice) }); });
+app.post('/api/invoices/:id/payments', async (req, res) => { if (!id(req.params.id)) return error(res, 400, 'Invalid invoice id'); const parsed = z.object({ amount: z.number().positive(), method: z.enum(['Card', 'Bank transfer', 'UPI']), reference: z.string().optional(), notes: z.string().optional() }).safeParse(req.body); if (!parsed.success) return error(res, 400, 'A positive amount and valid payment method are required'); const invoice = await Invoice.findById(req.params.id); if (!invoice) return error(res, 404, 'Invoice not found'); if (invoice.paidAmount + parsed.data.amount > invoice.amount) return error(res, 409, 'Payment exceeds invoice balance'); const payment = await Payment.create({ invoiceId: invoice._id, customerId: invoice.customerId, ...parsed.data }); invoice.paidAmount += parsed.data.amount; invoice.status = invoice.paidAmount === invoice.amount ? 'paid' : 'partially_paid'; await invoice.save(); res.status(201).json({ data: view(payment), invoice: view(invoice) }); });
+
+app.use((_req, res) => error(res, 404, 'Route not found'));
+app.use((err: Error, _req: Request, res: Response, _next: Function) => { console.error(err); error(res, 500, 'Unexpected server error'); });
+
+if (process.env.NODE_ENV !== 'test') {
+  mongoose.connect(process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/brightloop').then(() => app.listen(port, () => console.log(`Brightloop API listening on http://localhost:${port}`))).catch((err) => { console.error('MongoDB connection failed:', err.message); process.exitCode = 1; });
+}
 export default app;

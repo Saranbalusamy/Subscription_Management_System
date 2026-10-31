@@ -13,7 +13,14 @@ npm run dev
 - API: http://localhost:4000
 - API health: http://localhost:4000/api/health
 
-The API persists local changes to `apps/server/data.json`. For production deployment, replace the repository adapter in `apps/server/src/store.ts` with PostgreSQL/Prisma and configure secure authentication.
+The API uses MongoDB through Mongoose. Copy `apps/server/.env.example` to `.env`, start MongoDB, and run `npm run seed -w apps/server` to create the initial admin account and catalog data.
+
+Default seeded login:
+
+- Email: `admin@brightloop.local`
+- Password: `Admin!12345`
+
+Change the seed password with `SEED_ADMIN_PASSWORD` before using this outside local development.
 
 ## Project structure
 
