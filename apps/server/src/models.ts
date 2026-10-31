@@ -7,6 +7,9 @@ const subscriptionSchema = new Schema({ number: { type: String, unique: true }, 
 const invoiceSchema = new Schema({ number: { type: String, unique: true }, customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true }, subscriptionId: { type: Schema.Types.ObjectId, ref: 'Subscription' }, amount: { type: Number, min: 0, required: true }, paidAmount: { type: Number, min: 0, default: 0 }, plan: String, issuedOn: { type: Date, default: Date.now }, dueOn: { type: Date, required: true }, status: { type: String, enum: ['paid', 'partially_paid', 'open', 'overdue', 'draft'], default: 'open' } }, { versionKey: false });
 const paymentSchema = new Schema({ invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', required: true }, customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true }, amount: { type: Number, min: 0, required: true }, method: { type: String, enum: ['Card', 'Bank transfer', 'UPI'], required: true }, reference: String, notes: String, paidOn: { type: Date, default: Date.now } }, { versionKey: false });
 const userSchema = new Schema({ name: { type: String, required: true }, email: { type: String, unique: true, lowercase: true }, passwordHash: { type: String, required: true }, role: { type: String, enum: ['admin', 'staff', 'customer'], default: 'staff' }, customerId: { type: Schema.Types.ObjectId, ref: 'Customer' } }, { timestamps: true, versionKey: false });
+planSchema.index({ name: 1 }, { unique: true });
+productSchema.index({ name: 1 }, { unique: true });
+paymentSchema.index({ invoiceId: 1, reference: 1 }, { unique: true, sparse: true });
 
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', customerSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
